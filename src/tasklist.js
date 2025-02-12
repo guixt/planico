@@ -8,6 +8,8 @@ const TaskList = ({ tasks, setTasks, fetchTasks, userId }) => {
     const [editDueDate, setEditDueDate] = useState(null);
     const [editRecurring, setEditRecurring] = useState(false);
     const [editCompleted, setEditCompleted] = useState(false);
+    const [editRecurrenceInterval, setEditRecurrenceInterval] = useState(false);
+
 
     const startEditing = (task) => {
 
@@ -23,11 +25,13 @@ const TaskList = ({ tasks, setTasks, fetchTasks, userId }) => {
         // Kombinieren von bestehenden Werten mit den neuen
         const updatedTask = {
             ...editingTask,
-            text: editText || editingTask.text, // Falls kein Text eingegeben wird, den alten Text verwenden
-            due_date: editDueDate || editingTask.due_date,
-            is_recurring: editRecurring,
-            is_completed: editCompleted,
-        };
+            text: editText,
+            due_date: editDueDate ? new Date(editDueDate).toISOString().split('T')[0] : null,  // Nur speichern, wenn `editDueDate` vorhanden ist
+            is_recurring: editRecurring ? 1 : 0,
+            recurrence_interval: editRecurrenceInterval || null,
+            last_completed_date: editCompleted ? new Date().toISOString().split('T')[0] : editingTask.last_completed_date,
+            is_completed: editCompleted ? 1 : 0,  // Speichern als 1 oder 0
+          };
 
         // API-Aufruf zum Aktualisieren der Aufgabe
         fetch(`https://api.possiblyfour.com:5001/api/tasks/${editingTask.id}`, {
@@ -51,25 +55,25 @@ const TaskList = ({ tasks, setTasks, fetchTasks, userId }) => {
 
     const deleteEdit = () => {
         if (!editingTask) return;
-      
+
         console.log("Zu löschende Aufgaben ID:", editingTask.id);
 
         // Bestätigung vor dem Löschen
         if (!window.confirm("Möchtest du diese Aufgabe wirklich löschen?")) return;
-      
+
         // API-Aufruf zum Löschen der Aufgabe
         fetch(`https://api.possiblyfour.com:5001/api/tasks/${editingTask.id}`, {
-          method: "DELETE",
-          headers: { "Content-Type": "application/json" },
+            method: "DELETE",
+            headers: { "Content-Type": "application/json" },
         })
-          .then((res) => res.json())
-          .then((data) => {
-            console.log("Aufgabe erfolgreich gelöscht:", data);
-            fetchTasks(); // Aktualisierte Liste der Aufgaben abrufen
-          })
-          .catch((err) => console.error("Fehler beim Löschen der Aufgabe:", err));
-      };
-      
+            .then((res) => res.json())
+            .then((data) => {
+                console.log("Aufgabe erfolgreich gelöscht:", data);
+                fetchTasks(); // Aktualisierte Liste der Aufgaben abrufen
+            })
+            .catch((err) => console.error("Fehler beim Löschen der Aufgabe:", err));
+    };
+
 
     const assignToMe = (task) => {
         const updatedTask = {
@@ -114,13 +118,7 @@ const TaskList = ({ tasks, setTasks, fetchTasks, userId }) => {
                                     onInput={(e) => setEditText(e.target.value)}
                                     placeholder="Aufgabe bearbeiten"
                                     style={{ marginBottom: "1rem" }}
-                                />
-                                <DatePicker
-                                    value={editDueDate}
-                                    onChange={(e) => setEditDueDate(e.detail.value)}
-                                    placeholder="Fälligkeitsdatum wählen"
-                                    style={{ marginBottom: "1rem" }}
-                                />
+                                />                               
                                 <div style={{ marginBottom: "1rem" }}>
                                     <CheckBox
                                         checked={editRecurring}
@@ -128,6 +126,12 @@ const TaskList = ({ tasks, setTasks, fetchTasks, userId }) => {
                                         onChange={(e) => setEditRecurring(e.target.checked)}
                                     />
                                 </div>
+                                <Input
+                                    type="number"
+                                    placeholder="Wiederholungsintervall (Tage)"
+                                    value={editRecurrenceInterval}
+                                    onInput={(e) => setEditRecurrenceInterval(e.target.value)}
+                                />
                                 <div style={{ marginBottom: "1rem" }}>
                                     <CheckBox
                                         checked={editCompleted}

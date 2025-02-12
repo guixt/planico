@@ -6,7 +6,17 @@ const HouseholdPlanner = ( { userId } ) => {
     const [tasks, setTasks] = useState([]);
     const [newTask, setNewTask] = useState("");
 
-    
+    useEffect(() => {
+      const interval = setInterval(() => {
+        
+              console.log("Aufgaben werden neu geladen...");
+              fetchTasks(); // Aufgaben neu laden
+         
+      }, 2000); // Alle 2 Sekunden
+
+      return () => clearInterval(interval); // Timer beim Verlassen der Komponente stoppen
+  });
+
 
   useEffect(() => {
     // API-Aufruf zum Abrufen aller allgemeinen Aufgaben
@@ -35,6 +45,7 @@ const HouseholdPlanner = ( { userId } ) => {
     fetchTasks(); // Aufgaben abrufen, wenn die Komponente geladen wird
   }, []);
 
+  
 
   const handleDragEnd = (result) => {
     if (!result.destination) return;
