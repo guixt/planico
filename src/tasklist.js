@@ -1,7 +1,7 @@
-import React, { useState } from "react";
-import { Input, Button, Card, CardHeader, CheckBox, DatePicker } from "@ui5/webcomponents-react";
+import React, { useState, useEffect } from "react";
+import { Input, Button, Card, CardHeader, CheckBox } from "@ui5/webcomponents-react";
 
-const TaskList = ({ tasks, setTasks, fetchTasks, userId }) => {
+const TaskList = ({ tasks, setTasks, fetchTasks, userId,showOnlyOpenTasks }) => {
 
     const [editingTask, setEditingTask] = useState(null);
     const [editText, setEditText] = useState("");
@@ -9,6 +9,20 @@ const TaskList = ({ tasks, setTasks, fetchTasks, userId }) => {
     const [editRecurring, setEditRecurring] = useState(false);
     const [editCompleted, setEditCompleted] = useState(false);
     const [editRecurrenceInterval, setEditRecurrenceInterval] = useState(false);
+    const [editAssignedUser, setEditAssignedUser] = useState(false);
+
+
+    const [userList, setUserList] = useState([]);
+    const [assignedUser, setAssignedUser] = useState(editingTask?.user_id || "");
+
+    useEffect(() => {
+        fetch("https://api.possiblyfour.com:5001/api/users/public")
+            .then((res) => res.json())
+            .then((data) => setUserList(data))
+            .catch((err) => console.error("Fehler beim Abrufen der Benutzerliste:", err));
+    }, []);
+
+
 
 
     const startEditing = (task) => {
@@ -16,8 +30,9 @@ const TaskList = ({ tasks, setTasks, fetchTasks, userId }) => {
         setEditingTask(task);
         setEditText(task.text);
         setEditDueDate(task.due_date);
-        setEditRecurring(task.is_recurring);
-        setEditCompleted(task.is_completed);
+        setEditRecurring(task.is_recurring === 1);  // Konvertiere 1 zu true, 0 zu false
+        setEditCompleted(task.is_completed === 1);  // Dasselbe für is_completed
+        setAssignedUser(task.user_id || "");  // Benutzer-ID direkt übernehmen
     };
     const saveEdit = () => {
         if (!editingTask) return;
@@ -29,9 +44,11 @@ const TaskList = ({ tasks, setTasks, fetchTasks, userId }) => {
             due_date: editDueDate ? new Date(editDueDate).toISOString().split('T')[0] : null,  // Nur speichern, wenn `editDueDate` vorhanden ist
             is_recurring: editRecurring ? 1 : 0,
             recurrence_interval: editRecurrenceInterval || null,
-            last_completed_date: editCompleted ? new Date().toISOString().split('T')[0] : editingTask.last_completed_date,
+            last_completed_date: editCompleted ? new Date().toISOString().split('T')[0] : null,
             is_completed: editCompleted ? 1 : 0,  // Speichern als 1 oder 0
-          };
+            user_id: assignedUser || null,  // Benutzer-ID aus Dropdown übernehmen
+            assignedUser: editAssignedUser,
+        };
 
         // API-Aufruf zum Aktualisieren der Aufgabe
         fetch(`https://api.possiblyfour.com:5001/api/tasks/${editingTask.id}`, {
@@ -42,7 +59,7 @@ const TaskList = ({ tasks, setTasks, fetchTasks, userId }) => {
             .then((res) => res.json())
             .then((data) => {
                 console.log("Aufgabe erfolgreich aktualisiert:", data);
-                fetchTasks(); // Aktualisierte Liste der Aufgaben abrufen
+                fetchTasks(showOnlyOpenTasks); // Aktualisierte Liste der Aufgaben abrufen
             })
             .catch((err) => console.error("Fehler beim Aktualisieren der Aufgabe:", err));
 
@@ -69,7 +86,7 @@ const TaskList = ({ tasks, setTasks, fetchTasks, userId }) => {
             .then((res) => res.json())
             .then((data) => {
                 console.log("Aufgabe erfolgreich gelöscht:", data);
-                fetchTasks(); // Aktualisierte Liste der Aufgaben abrufen
+                fetchTasks(showOnlyOpenTasks); // Aktualisierte Liste der Aufgaben abrufen
             })
             .catch((err) => console.error("Fehler beim Löschen der Aufgabe:", err));
     };
@@ -91,7 +108,7 @@ const TaskList = ({ tasks, setTasks, fetchTasks, userId }) => {
             .then((res) => res.json())
             .then(() => {
                 console.log("Aufgabe erfolgreich zugewiesen.");
-                fetchTasks(); // Aktualisierte Liste der Aufgaben abrufen
+                fetchTasks(showOnlyOpenTasks); // Aktualisierte Liste der Aufgaben abrufen
             })
             .catch((err) => console.error("Fehler beim Zuweisen der Aufgabe:", err));
     };
@@ -107,7 +124,8 @@ const TaskList = ({ tasks, setTasks, fetchTasks, userId }) => {
     return (
         <div style={{ padding: "1rem", display: "grid", gap: "1rem", gridTemplateColumns: "repeat(auto-fill, minmax(300px, 1fr))" }}>
 
-            {tasks.map((task) => (
+            {tasks.map((task) => (          
+                
                 <Card key={task.id}>
                     <CardHeader titleText={task.text} subtitleText={`Zugewiesen an: ${task.assigned_to || "Niemand"}`} />
                     <div style={{ padding: "1rem" }}>
@@ -118,7 +136,20 @@ const TaskList = ({ tasks, setTasks, fetchTasks, userId }) => {
                                     onInput={(e) => setEditText(e.target.value)}
                                     placeholder="Aufgabe bearbeiten"
                                     style={{ marginBottom: "1rem" }}
-                                />                               
+                                />
+
+                                <select
+                                    value={assignedUser || ""}
+                                    onChange={(e) => setAssignedUser(e.target.value)}
+                                    style={{ width: "100%", marginBottom: "1rem", padding: "0.5rem", borderRadius: "4px" }}
+                                >
+                                    <option value="">Keinem Benutzer zugewiesen</option>
+                                    {userList.map((user) => (
+                                        <option key={user.id} value={user.id}>
+                                            {user.name}
+                                        </option>
+                                    ))}
+                                </select>
                                 <div style={{ marginBottom: "1rem" }}>
                                     <CheckBox
                                         checked={editRecurring}
@@ -148,15 +179,9 @@ const TaskList = ({ tasks, setTasks, fetchTasks, userId }) => {
                         ) : (
                             <div>
                                 <p style={{ color: task.is_completed ? "green" : "red" }}>Status: {task.is_completed ? "Erledigt" : "Offen"}</p>
+                                
                                 <Button design="Transparent" onClick={() => startEditing(task)} style={{ marginTop: "1rem" }}>Bearbeiten</Button>
-                                {task.user_id === null && (
-                                    <Button
-                                        design="Emphasized"
-                                        onClick={() => assignToMe(task)}
-                                        style={{ marginTop: "1rem" }}>
-                                        Mir zuweisen
-                                    </Button>
-                                )}
+
 
                             </div>
                         )}

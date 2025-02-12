@@ -1,51 +1,63 @@
-import React, {useState, useEffect } from "react";
+import React, { useState, useEffect } from "react";
 import TaskList from "./tasklist";
+import { Input, Button, Title, Panel, FlexBox, FlexBoxJustifyContent } from "@ui5/webcomponents-react";
+import { CheckBox } from "@ui5/webcomponents-react";
 
-const HouseholdPlanner = ( { userId } ) => {
 
-    const [tasks, setTasks] = useState([]);
-    const [newTask, setNewTask] = useState("");
+const HouseholdPlanner = ({ userId }) => {
+  const [tasks, setTasks] = useState([]);
+  const [newTask, setNewTask] = useState("");
 
-    useEffect(() => {
-      const interval = setInterval(() => {
-        
-              console.log("Aufgaben werden neu geladen...");
-              fetchTasks(); // Aufgaben neu laden
-         
-      }, 2000); // Alle 2 Sekunden
-
-      return () => clearInterval(interval); // Timer beim Verlassen der Komponente stoppen
-  });
-
+  const [showOnlyOpenTasks, setShowOnlyOpenTasks] = useState(false);
 
   useEffect(() => {
-    // API-Aufruf zum Abrufen aller allgemeinen Aufgaben
-    fetch("https://api.possiblyfour.com:5001/api/tasks/general")
-      .then((res) => res.json())
-      .then((data) => {
-        console.log("Erhaltene Aufgaben:", data); // Debugging: Überprüfen, welche Daten empfangen wurden
-        setTasks(data); // Daten in den State laden
-      })
-      .catch((err) => console.error("Fehler beim Abrufen der Aufgaben:", err));
-  }, []); // Leer, damit es nur beim ersten Rendern ausgeführt wird
+    fetchTasks(showOnlyOpenTasks);  // Aufgaben basierend auf dem Filter abrufen
+  }, [showOnlyOpenTasks]);
 
-  
- // Fetch-Tasks-Funktion zum Abrufen der aktuellen Aufgabenliste
- const fetchTasks = () => {
-    fetch("https://api.possiblyfour.com:5001/api/tasks/general")
-      .then((res) => res.json())
-      .then((data) => {
-        console.log("Erhaltene Aufgaben:", data);
-        setTasks(data);
-      })
-      .catch((err) => console.error("Fehler beim Abrufen der Aufgaben:", err));
+  const handleCheckboxChange = (e) => {
+    const isChecked = e.target.checked;
+    setShowOnlyOpenTasks(isChecked);
+    fetchTasks();  // API-Aufruf direkt beim Umschalten
   };
+  
+  
+  useEffect(() => {
+    const interval = setInterval(() => {
+      console.log("Aufgaben werden neu geladen...");
+      fetchTasks(showOnlyOpenTasks);  // Aktuellen Filterwert übergeben
+    }, 2000);
+  
+    return () => clearInterval(interval);
+  }, [showOnlyOpenTasks]);  // `showOnlyOpenTasks` als Abhängigkeit hinzufügen
+
+const fetchTasks = (filterOpenTasks = false) => {
+  fetch("https://api.possiblyfour.com:5001/api/tasks/general")
+    .then((res) => res.json())
+    .then((data) => {
+      const filteredTasks = filterOpenTasks ? data.filter(task => task.is_completed === 0) : data;
+      console.log("Gefilterte Aufgaben:", filteredTasks);
+      setTasks(filteredTasks);
+    })
+    .catch((err) => console.error("Fehler beim Abrufen der Aufgaben:", err));
+};
+
 
   useEffect(() => {
-    fetchTasks(); // Aufgaben abrufen, wenn die Komponente geladen wird
-  }, []);
+    fetchTasks(showOnlyOpenTasks);
+  }, [showOnlyOpenTasks]);  // `showOnlyOpenTasks` als Abhängigkeit hinzufügen
 
   
+  const calculateNextDueDate = (task) => {
+    if (!task.is_recurring || !task.last_completed_date || !task.recurrence_interval) {
+        return null;  // Kein nächstes Fälligkeitsdatum, wenn Bedingungen nicht erfüllt sind
+    }
+
+    const lastCompleted = new Date(task.last_completed_date);
+    const nextDue = new Date(lastCompleted);
+    nextDue.setDate(lastCompleted.getDate() + parseInt(task.recurrence_interval, 10));
+
+    return nextDue.toLocaleDateString();  // Datum im lesbaren Format zurückgeben
+};
 
   const handleDragEnd = (result) => {
     if (!result.destination) return;
@@ -57,8 +69,7 @@ const HouseholdPlanner = ( { userId } ) => {
 
   const addTask = () => {
     if (newTask.trim() === "") return;
-  
-    // Aufgabe zur API hinzufügen
+
     fetch("https://api.possiblyfour.com:5001/api/tasks", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -68,45 +79,57 @@ const HouseholdPlanner = ( { userId } ) => {
         due_date: null,
         is_recurring: false,
         recurrence_interval: null,
-        status: "open",
-        created_by: userId, // Benutzer-ID des aktuellen Benutzers
+        is_completed: 0,
+        created_by: userId,
       }),
     })
       .then((res) => res.json())
       .then((data) => {
         console.log("Neue Aufgabe hinzugefügt:", data);
-       
-        // Aktualisierte Liste der Aufgaben abrufen
-        fetchTasks(); // fetchTasks ist die Funktion aus `useEffect`, um die aktuellen Aufgaben zu laden
+        fetchTasks();
       })
       .catch((err) => console.error("Fehler beim Hinzufügen der Aufgabe:", err));
-  
-    setNewTask(""); // Eingabefeld zurücksetzen
+
+    setNewTask("");
   };
-  
 
   return (
-    <div style={{ padding: "1rem" }} >
-      <h1 style={{ fontSize: "1.5rem", fontWeight: "bold", marginBottom: "1rem" }}>Haushaltsplaner</h1>
-     
-      <div style={{ display: "flex", marginBottom: "1rem" }}>
-        
-        <input
-          type="text"
-          value={newTask}
-          onChange={(e) => setNewTask(e.target.value)}
-          placeholder="Neue Aufgabe hinzufügen"
-          style={{ flex: 1, marginRight: "0.5rem", padding: "0.5rem" }}
-        />
+    <div style={{ padding: "1rem" }}>
+      <Title level="H1">Planico – Haushaltsplaner</Title>
       
-        <button onClick={addTask} style={{ padding: "0.5rem 1rem", backgroundColor: "#007BFF", color: "white", border: "none", borderRadius: "4px" }}>
-          Hinzufügen
-        </button>
-       
-      </div>
-      <TaskList tasks={tasks} setTasks={setTasks} 
-           handleDragEnd={handleDragEnd} fetchTasks={fetchTasks}
-           userId={userId}  />
+      <CheckBox
+        text="Nur offene Aufgaben anzeigen"
+        checked={showOnlyOpenTasks}
+        onChange={handleCheckboxChange}
+        style={{ marginBottom: "1rem" }}
+      />
+
+
+      <Panel headerText="Neue Aufgabe hinzufügen">
+        <FlexBox justifyContent={FlexBoxJustifyContent.SpaceBetween} style={{ gap: "1rem" }}>
+          <Input
+            value={newTask}
+            onInput={(e) => setNewTask(e.target.value)}
+            placeholder="Aufgabenbeschreibung"
+            style={{ width: "70%" }}
+          />
+          <Button design="Emphasized" onClick={addTask}>
+            Hinzufügen
+          </Button>
+        </FlexBox>
+      </Panel>
+
+      {tasks.length === 0 ? (
+        <div style={{ textAlign: "center", marginTop: "2rem", color: "#888" }}>
+          <h2>Keine Aufgaben gefunden</h2>
+          <p>Du hast alle Aufgaben erledigt oder es sind noch keine Aufgaben vorhanden.</p>
+        </div>
+      ) : (
+
+      <TaskList tasks={tasks} setTasks={setTasks} handleDragEnd={handleDragEnd} 
+      fetchTasks={fetchTasks} userId={userId}  showOnlyOpenTasks={showOnlyOpenTasks} />
+      )}
+
     </div>
   );
 };

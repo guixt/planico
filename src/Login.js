@@ -1,5 +1,6 @@
 import React, { useState } from "react";
 import "./Login.css"; // Externe CSS-Datei für Styling
+import loginImage from "./login-image.png"; // Bild einfügen (achte auf den Pfad)
 
 function Login({ onLogin }) {
   const [email, setEmail] = useState("");
@@ -33,10 +34,10 @@ function Login({ onLogin }) {
         } else {
           setMessage("Login erfolgreich!");
           localStorage.setItem("token", data.token);
-          localStorage.setItem("userId", data.userId);          
+          localStorage.setItem("userId", data.userId);
           localStorage.setItem("isAdmin", data.isAdmin); // Speichert Admin-Status
           localStorage.setItem("username", data.name);
-          
+
           onLogin(data.userId);
         }
       } else {
@@ -50,6 +51,11 @@ function Login({ onLogin }) {
 
   return (
     <div className="login-container">
+      <h1 className="login-title">Planico</h1>
+      <p className="login-description">Deine App für das einfache und effiziente Verwalten von Haushaltsaufgaben.</p>
+      <img src={loginImage} alt="Planico Login" className="login-image" />
+
+
       <h2>{isRegistering ? "Registrieren" : "Login"}</h2>
       <form onSubmit={handleSubmit} className="login-form">
         {isRegistering && (

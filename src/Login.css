@@ -66,4 +66,20 @@
     font-size: 14px;
     margin-top: 10px;
   }
+  login-title {
+    font-size: 2.5rem;
+    margin-bottom: 0.5rem;
+    color: #007aff;
+  }
   
+  .login-description {
+    font-size: 1.2rem;
+    margin-bottom: 1.5rem;
+    color: #555;
+  }
+  
+  .login-image {
+    max-width: 85%;
+    
+    border-radius: 8px;
+  }
