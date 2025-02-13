@@ -1,11 +1,13 @@
 {
   "name": "planico",
+  "homepage": "./",
   "version": "0.1.0",
   "private": true,
   "dependencies": {
     "@shadcn/ui": "^0.0.4",
-    "@ui5/webcomponents": "^2.7.1",
+    "@ui5/webcomponents": "^2.7.2",
     "@ui5/webcomponents-fiori": "^2.7.1",
+    "@ui5/webcomponents-icons": "^2.7.2",
     "@ui5/webcomponents-react": "^2.7.1",
     "autoprefixer": "^10.4.20",
     "cra-template": "1.2.0",

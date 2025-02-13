@@ -8,48 +8,62 @@ const HouseholdPlanner = ({ userId }) => {
   const [tasks, setTasks] = useState([]);
   const [newTask, setNewTask] = useState("");
 
-  const [showOnlyOpenTasks, setShowOnlyOpenTasks] = useState(false);
+  const [showOnlyOpenTasks, setShowOnlyOpenTasks] = useState(true);
+  const [showOnlyMyTasks, setShowOnlyMyTasks] = useState(true); // Neuer State für „Nur meine Aufgaben“
 
   useEffect(() => {
-    fetchTasks(showOnlyOpenTasks);  // Aufgaben basierend auf dem Filter abrufen
-  }, [showOnlyOpenTasks]);
+    fetchTasks(showOnlyOpenTasks, showOnlyMyTasks);
+  }, [showOnlyOpenTasks, showOnlyMyTasks]);
 
   const handleCheckboxChange = (e) => {
     const isChecked = e.target.checked;
     setShowOnlyOpenTasks(isChecked);
-    fetchTasks();  // API-Aufruf direkt beim Umschalten
+    fetchTasks(showOnlyOpenTasks, showOnlyMyTasks);
   };
-  
-  
+
+
+  const handleMyTasksChange = (e) => {
+    setShowOnlyMyTasks(e.target.checked);
+  };
+
+
+
   useEffect(() => {
     const interval = setInterval(() => {
       console.log("Aufgaben werden neu geladen...");
-      fetchTasks(showOnlyOpenTasks);  // Aktuellen Filterwert übergeben
+      fetchTasks(showOnlyOpenTasks, showOnlyMyTasks);  // Aktuellen Filterwert übergeben
     }, 2000);
-  
+
     return () => clearInterval(interval);
-  }, [showOnlyOpenTasks]);  // `showOnlyOpenTasks` als Abhängigkeit hinzufügen
+  }, [showOnlyOpenTasks, showOnlyMyTasks]);  // `showOnlyOpenTasks` als Abhängigkeit hinzufügen
 
-const fetchTasks = (filterOpenTasks = false) => {
-  fetch("https://api.possiblyfour.com:5001/api/tasks/general")
-    .then((res) => res.json())
-    .then((data) => {
-      const filteredTasks = filterOpenTasks ? data.filter(task => task.is_completed === 0) : data;
-      console.log("Gefilterte Aufgaben:", filteredTasks);
-      setTasks(filteredTasks);
-    })
-    .catch((err) => console.error("Fehler beim Abrufen der Aufgaben:", err));
-};
 
+
+  const fetchTasks = (filterOpenTasks = false, filterMyTasks = false) => {
+    fetch("https://api.possiblyfour.com:5001/api/tasks/general")
+      .then((res) => res.json())
+      .then((data) => {
+        let filteredTasks = data;
+        if (filterOpenTasks) {
+          filteredTasks = filteredTasks.filter((task) => task.is_completed === 0);
+        }
+        if (filterMyTasks) {
+          filteredTasks = filteredTasks.filter((task) => task.user_id === userId);
+        }
+        console.log("Gefilterte Aufgaben:", filteredTasks);
+        setTasks(filteredTasks);
+      })
+      .catch((err) => console.error("Fehler beim Abrufen der Aufgaben:", err));
+  };
 
   useEffect(() => {
-    fetchTasks(showOnlyOpenTasks);
-  }, [showOnlyOpenTasks]);  // `showOnlyOpenTasks` als Abhängigkeit hinzufügen
+    fetchTasks(showOnlyOpenTasks, showOnlyMyTasks);
+  }, [showOnlyOpenTasks, showOnlyMyTasks]);
 
-  
+
   const calculateNextDueDate = (task) => {
     if (!task.is_recurring || !task.last_completed_date || !task.recurrence_interval) {
-        return null;  // Kein nächstes Fälligkeitsdatum, wenn Bedingungen nicht erfüllt sind
+      return null;  // Kein nächstes Fälligkeitsdatum, wenn Bedingungen nicht erfüllt sind
     }
 
     const lastCompleted = new Date(task.last_completed_date);
@@ -57,7 +71,7 @@ const fetchTasks = (filterOpenTasks = false) => {
     nextDue.setDate(lastCompleted.getDate() + parseInt(task.recurrence_interval, 10));
 
     return nextDue.toLocaleDateString();  // Datum im lesbaren Format zurückgeben
-};
+  };
 
   const handleDragEnd = (result) => {
     if (!result.destination) return;
@@ -86,7 +100,7 @@ const fetchTasks = (filterOpenTasks = false) => {
       .then((res) => res.json())
       .then((data) => {
         console.log("Neue Aufgabe hinzugefügt:", data);
-        fetchTasks();
+        fetchTasks(showOnlyOpenTasks, showOnlyMyTasks);
       })
       .catch((err) => console.error("Fehler beim Hinzufügen der Aufgabe:", err));
 
@@ -96,16 +110,22 @@ const fetchTasks = (filterOpenTasks = false) => {
   return (
     <div style={{ padding: "1rem" }}>
       <Title level="H1">Planico – Haushaltsplaner</Title>
-      
+
       <CheckBox
-        text="Nur offene Aufgaben anzeigen"
+        text="Nur offene Aufgaben"
         checked={showOnlyOpenTasks}
         onChange={handleCheckboxChange}
-        style={{ marginBottom: "1rem" }}
+      
+      />
+
+      <CheckBox
+        text="Nur meine Aufgaben"
+        checked={showOnlyMyTasks}
+        onChange={handleMyTasksChange}
       />
 
 
-      <Panel headerText="Neue Aufgabe hinzufügen">
+      <Panel collapsed headerText="Neue Aufgabe hinzufügen">
         <FlexBox justifyContent={FlexBoxJustifyContent.SpaceBetween} style={{ gap: "1rem" }}>
           <Input
             value={newTask}
@@ -126,8 +146,9 @@ const fetchTasks = (filterOpenTasks = false) => {
         </div>
       ) : (
 
-      <TaskList tasks={tasks} setTasks={setTasks} handleDragEnd={handleDragEnd} 
-      fetchTasks={fetchTasks} userId={userId}  showOnlyOpenTasks={showOnlyOpenTasks} />
+        <TaskList tasks={tasks} setTasks={setTasks} handleDragEnd={handleDragEnd}
+          fetchTasks={fetchTasks} userId={userId} showOnlyOpenTasks={showOnlyOpenTasks}
+          showOnlyMyTasks={showOnlyMyTasks} />
       )}
 
     </div>

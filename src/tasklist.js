@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { Input, Button, Card, CardHeader, CheckBox } from "@ui5/webcomponents-react";
 
-const TaskList = ({ tasks, setTasks, fetchTasks, userId,showOnlyOpenTasks }) => {
+const TaskList = ({ tasks, setTasks, fetchTasks, userId, showOnlyOpenTasks, showOnlyMyTasks }) => {
 
     const [editingTask, setEditingTask] = useState(null);
     const [editText, setEditText] = useState("");
@@ -9,9 +9,7 @@ const TaskList = ({ tasks, setTasks, fetchTasks, userId,showOnlyOpenTasks }) => 
     const [editRecurring, setEditRecurring] = useState(false);
     const [editCompleted, setEditCompleted] = useState(false);
     const [editRecurrenceInterval, setEditRecurrenceInterval] = useState(false);
-    const [editAssignedUser, setEditAssignedUser] = useState(false);
-
-
+    
     const [userList, setUserList] = useState([]);
     const [assignedUser, setAssignedUser] = useState(editingTask?.user_id || "");
 
@@ -22,32 +20,35 @@ const TaskList = ({ tasks, setTasks, fetchTasks, userId,showOnlyOpenTasks }) => 
             .catch((err) => console.error("Fehler beim Abrufen der Benutzerliste:", err));
     }, []);
 
-
-
-
     const startEditing = (task) => {
-
         setEditingTask(task);
-        setEditText(task.text);
-        setEditDueDate(task.due_date);
-        setEditRecurring(task.is_recurring === 1);  // Konvertiere 1 zu true, 0 zu false
-        setEditCompleted(task.is_completed === 1);  // Dasselbe für is_completed
-        setAssignedUser(task.user_id || "");  // Benutzer-ID direkt übernehmen
+        setEditText(task.text || "");
+        setEditDueDate(task.due_date || "");
+        setEditRecurring(task.is_recurring === 1);
+        setEditCompleted(task.is_completed === 1);
+        setEditRecurrenceInterval(task.recurrence_interval || null);
+        setAssignedUser(task.user_id || "");  // Hier direkt setAssignedUser verwenden
     };
+
+    useEffect(() => {
+        if (editingTask) {
+            setAssignedUser(editingTask.user_id || "");
+        }
+    }, [editingTask, userList]);
+
     const saveEdit = () => {
         if (!editingTask) return;
 
         // Kombinieren von bestehenden Werten mit den neuen
         const updatedTask = {
             ...editingTask,
-            text: editText,
-            due_date: editDueDate ? new Date(editDueDate).toISOString().split('T')[0] : null,  // Nur speichern, wenn `editDueDate` vorhanden ist
+            text: editText.trim(),
+            due_date: editDueDate ? new Date(editDueDate).toISOString().split('T')[0] : null,
             is_recurring: editRecurring ? 1 : 0,
             recurrence_interval: editRecurrenceInterval || null,
-            last_completed_date: editCompleted ? new Date().toISOString().split('T')[0] : null,
-            is_completed: editCompleted ? 1 : 0,  // Speichern als 1 oder 0
-            user_id: assignedUser || null,  // Benutzer-ID aus Dropdown übernehmen
-            assignedUser: editAssignedUser,
+            last_completed_date: editCompleted ? new Date().toISOString().split('T')[0] : editingTask.last_completed_date,
+            is_completed: editCompleted ? 1 : 0,
+            user_id: assignedUser || null,
         };
 
         // API-Aufruf zum Aktualisieren der Aufgabe
@@ -59,7 +60,7 @@ const TaskList = ({ tasks, setTasks, fetchTasks, userId,showOnlyOpenTasks }) => 
             .then((res) => res.json())
             .then((data) => {
                 console.log("Aufgabe erfolgreich aktualisiert:", data);
-                fetchTasks(showOnlyOpenTasks); // Aktualisierte Liste der Aufgaben abrufen
+                fetchTasks(showOnlyOpenTasks, showOnlyMyTasks); // Aktualisierte Liste der Aufgaben abrufen
             })
             .catch((err) => console.error("Fehler beim Aktualisieren der Aufgabe:", err));
 
@@ -86,7 +87,7 @@ const TaskList = ({ tasks, setTasks, fetchTasks, userId,showOnlyOpenTasks }) => 
             .then((res) => res.json())
             .then((data) => {
                 console.log("Aufgabe erfolgreich gelöscht:", data);
-                fetchTasks(showOnlyOpenTasks); // Aktualisierte Liste der Aufgaben abrufen
+                fetchTasks(showOnlyOpenTasks, showOnlyMyTasks); // Aktualisierte Liste der Aufgaben abrufen
             })
             .catch((err) => console.error("Fehler beim Löschen der Aufgabe:", err));
     };
@@ -108,7 +109,7 @@ const TaskList = ({ tasks, setTasks, fetchTasks, userId,showOnlyOpenTasks }) => 
             .then((res) => res.json())
             .then(() => {
                 console.log("Aufgabe erfolgreich zugewiesen.");
-                fetchTasks(showOnlyOpenTasks); // Aktualisierte Liste der Aufgaben abrufen
+                fetchTasks(showOnlyOpenTasks, showOnlyMyTasks); // Aktualisierte Liste der Aufgaben abrufen
             })
             .catch((err) => console.error("Fehler beim Zuweisen der Aufgabe:", err));
     };
@@ -122,10 +123,10 @@ const TaskList = ({ tasks, setTasks, fetchTasks, userId,showOnlyOpenTasks }) => 
     };
 
     return (
-        <div style={{ padding: "1rem", display: "grid", gap: "1rem", gridTemplateColumns: "repeat(auto-fill, minmax(300px, 1fr))" }}>
+        <div style={{ padding: "1rem", display: "grid", gap: "1rem", gridTemplateColumns: "repeat(auto-fill, minmax(290px, 1fr))" }}>
 
-            {tasks.map((task) => (          
-                
+            {tasks.map((task) => (
+
                 <Card key={task.id}>
                     <CardHeader titleText={task.text} subtitleText={`Zugewiesen an: ${task.assigned_to || "Niemand"}`} />
                     <div style={{ padding: "1rem" }}>
@@ -179,7 +180,7 @@ const TaskList = ({ tasks, setTasks, fetchTasks, userId,showOnlyOpenTasks }) => 
                         ) : (
                             <div>
                                 <p style={{ color: task.is_completed ? "green" : "red" }}>Status: {task.is_completed ? "Erledigt" : "Offen"}</p>
-                                
+
                                 <Button design="Transparent" onClick={() => startEditing(task)} style={{ marginTop: "1rem" }}>Bearbeiten</Button>
 
 
