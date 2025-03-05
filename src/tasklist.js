@@ -1,5 +1,9 @@
 import React, { useState, useEffect } from "react";
 import { Input, Button, Card, CardHeader, CheckBox } from "@ui5/webcomponents-react";
+import "@ui5/webcomponents-icons/dist/status-critical";
+import "@ui5/webcomponents-icons/dist/status-positive";
+import "@ui5/webcomponents-icons/dist/status-error";
+import "@ui5/webcomponents-icons/dist/pending";
 
 const TaskList = ({ tasks, setTasks, fetchTasks, userId, showOnlyOpenTasks, showOnlyMyTasks }) => {
 
@@ -12,6 +16,8 @@ const TaskList = ({ tasks, setTasks, fetchTasks, userId, showOnlyOpenTasks, show
 
     const [userList, setUserList] = useState([]);
     const [assignedUser, setAssignedUser] = useState(editingTask?.user_id || "");
+
+    
 
     useEffect(() => {
         fetch("https://api.possiblyfour.com:5001/api/users/public")
@@ -51,6 +57,23 @@ const TaskList = ({ tasks, setTasks, fetchTasks, userId, showOnlyOpenTasks, show
         console.log("assignedUser:", task.user_id);
     };
 
+
+
+    const getDueStatus = (dueDate) => {
+        if (!dueDate) return { icon: "", color: "transparent" }; // Kein Datum → Kein Icon anzeigen
+    
+        const today = new Date();
+        const due = new Date(dueDate);
+        const diffDays = Math.floor((today - due) / (1000 * 60 * 60 * 24));
+    
+        if (diffDays <= 0) return { icon: "", color: "transparent" }; // Kein Datum → Kein Icon anzeigen
+    
+        if (diffDays <= 2) {
+            return { color: "orange", icon: "pending" }; // 1-2 Tage überfällig
+        } 
+              
+        return { color: "red", icon: "status-critical" }; // Mehr als 5 Tage → Rot + Kritisch-Icon
+    };
 
 
     useEffect(() => {
@@ -157,13 +180,28 @@ const TaskList = ({ tasks, setTasks, fetchTasks, userId, showOnlyOpenTasks, show
         setEditCompleted(false);
     };
 
+   
+    
+
     return (
         <div style={{ padding: "1rem", display: "grid", gap: "1rem", gridTemplateColumns: "repeat(auto-fill, minmax(290px, 1fr))" }}>
-
+            
             {tasks.map((task) => (
-
                 <Card key={task.id}>
-                    <CardHeader titleText={task.text} subtitleText={`Zugewiesen an: ${task.assigned_to || "Niemand"}`} />
+                    <CardHeader
+                        titleText={task.text}
+                        subtitleText={`Zugewiesen an: ${task.assigned_to || "Niemand"}`}
+                        action={
+                            getDueStatus(task.due_date) && getDueStatus(task.due_date).icon ? (
+                                <ui5-icon
+                                    name={getDueStatus(task.due_date).icon}
+                                    style={{ color: getDueStatus(task.due_date).color, fontSize: "1.5rem", marginRight: "1rem" }}
+                                />
+                            ) : null
+                        }
+                       
+                    />
+
                     <div style={{ padding: "1rem" }}>
                         {editingTask && editingTask.id === task.id ? (
                             <div>
@@ -225,7 +263,7 @@ const TaskList = ({ tasks, setTasks, fetchTasks, userId, showOnlyOpenTasks, show
                         ) : (
                             <div>
                                 <p style={{ fontWeight: "bold", color: task.is_completed ? "#2E7D32" : "#D32F2F" }}>
-                                    Status: {task.is_completed ? "✔ Erledigt" : "⚠ Offen"}
+                                    Status: {task.is_completed ? "✔ Erledigt" : "Offen"}
                                 </p>
                                 <p style={{ fontSize: "0.9rem", color: "#666" }}>
                                     {task.due_date && `📅 Fällig am: ${formatDate(task.due_date)}`}
