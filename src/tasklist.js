@@ -9,7 +9,7 @@ const TaskList = ({ tasks, setTasks, fetchTasks, userId, showOnlyOpenTasks, show
     const [editRecurring, setEditRecurring] = useState(false);
     const [editCompleted, setEditCompleted] = useState(false);
     const [editRecurrenceInterval, setEditRecurrenceInterval] = useState(false);
-    
+
     const [userList, setUserList] = useState([]);
     const [assignedUser, setAssignedUser] = useState(editingTask?.user_id || "");
 
@@ -19,16 +19,39 @@ const TaskList = ({ tasks, setTasks, fetchTasks, userId, showOnlyOpenTasks, show
             .then((data) => setUserList(data))
             .catch((err) => console.error("Fehler beim Abrufen der Benutzerliste:", err));
     }, []);
-
     const startEditing = (task) => {
+        console.log("Bearbeiten gestartet für Aufgabe:", task);
+
         setEditingTask(task);
         setEditText(task.text || "");
-        setEditDueDate(task.due_date || "");
+
+        // Datum umwandeln für <input type="date">
+        let formattedDueDate = "";
+        if (task.due_date) {
+            try {
+                formattedDueDate = new Date(task.due_date).toISOString().split("T")[0]; // Sicherstellen, dass es im YYYY-MM-DD Format ist
+            } catch (error) {
+                console.error("Fehler bei der Datumsumwandlung:", error);
+                formattedDueDate = ""; // Falls ein Fehler auftritt, lieber leer lassen
+            }
+        }
+
+        setEditDueDate(formattedDueDate);
         setEditRecurring(task.is_recurring === 1);
         setEditCompleted(task.is_completed === 1);
         setEditRecurrenceInterval(task.recurrence_interval || null);
-        setAssignedUser(task.user_id || "");  // Hier direkt setAssignedUser verwenden
+        setAssignedUser(task.user_id || "");
+
+        console.log("Gesetzte Werte:");
+        console.log("editText:", task.text);
+        console.log("editDueDate (formatiert):", formattedDueDate);
+        console.log("editRecurring:", task.is_recurring === 1);
+        console.log("editCompleted:", task.is_completed === 1);
+        console.log("editRecurrenceInterval:", task.recurrence_interval);
+        console.log("assignedUser:", task.user_id);
     };
+
+
 
     useEffect(() => {
         if (editingTask) {
@@ -36,20 +59,32 @@ const TaskList = ({ tasks, setTasks, fetchTasks, userId, showOnlyOpenTasks, show
         }
     }, [editingTask, userList]);
 
+    const formatDate = (date) => {
+        if (!date) return "";
+        return new Date(date).toLocaleDateString(); // Gibt z. B. "12.02.2025" aus
+    };
+
     const saveEdit = () => {
         if (!editingTask) return;
+
+        // Prüfen, ob die Aufgabe von offen zu erledigt geändert wurde
+        const wasJustCompleted = editCompleted && editingTask.is_completed === 0;
 
         // Kombinieren von bestehenden Werten mit den neuen
         const updatedTask = {
             ...editingTask,
             text: editText.trim(),
-            due_date: editDueDate ? new Date(editDueDate).toISOString().split('T')[0] : null,
+            due_date: editDueDate ? new Date(editDueDate).toJSON().slice(0, 10) : null,
             is_recurring: editRecurring ? 1 : 0,
             recurrence_interval: editRecurrenceInterval || null,
-            last_completed_date: editCompleted ? new Date().toISOString().split('T')[0] : editingTask.last_completed_date,
+            last_completed_date: wasJustCompleted
+                ? new Date().toJSON().slice(0, 10) // Nur setzen, wenn die Aufgabe gerade erledigt wurde
+                : new Date().toJSON(editingTask.last_completed_date).slice(0, 10), // Andernfalls beibehalten
             is_completed: editCompleted ? 1 : 0,
             user_id: assignedUser || null,
         };
+
+
 
         // API-Aufruf zum Aktualisieren der Aufgabe
         fetch(`https://api.possiblyfour.com:5001/api/tasks/${editingTask.id}`, {
@@ -151,6 +186,16 @@ const TaskList = ({ tasks, setTasks, fetchTasks, userId, showOnlyOpenTasks, show
                                         </option>
                                     ))}
                                 </select>
+
+                                <span> Fällig am:</span>
+                                <Input
+                                    value={editDueDate}
+                                    type="Date"
+                                    onInput={(e) => setEditDueDate(e.target.value)}
+                                    style={{ marginBottom: "1rem" }}
+                                />
+
+
                                 <div style={{ marginBottom: "1rem" }}>
                                     <CheckBox
                                         checked={editRecurring}
@@ -179,7 +224,12 @@ const TaskList = ({ tasks, setTasks, fetchTasks, userId, showOnlyOpenTasks, show
                             </div>
                         ) : (
                             <div>
-                                <p style={{ color: task.is_completed ? "green" : "red" }}>Status: {task.is_completed ? "Erledigt" : "Offen"}</p>
+                                <p style={{ fontWeight: "bold", color: task.is_completed ? "#2E7D32" : "#D32F2F" }}>
+                                    Status: {task.is_completed ? "✔ Erledigt" : "⚠ Offen"}
+                                </p>
+                                <p style={{ fontSize: "0.9rem", color: "#666" }}>
+                                    {task.due_date && `📅 Fällig am: ${formatDate(task.due_date)}`}
+                                </p>
 
                                 <Button design="Transparent" onClick={() => startEditing(task)} style={{ marginTop: "1rem" }}>Bearbeiten</Button>
 
